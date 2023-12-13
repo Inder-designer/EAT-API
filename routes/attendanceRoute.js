@@ -4,6 +4,7 @@ const express = require("express");
 const router = express.Router();
 const Attendance = require("../models/Attendance");
 const verify = require("../verifyToken");
+
 /**
  * @swagger
  * /api/attendance/mark-attendance:
@@ -198,66 +199,74 @@ router.post("/mark-attendance", verify, async (req, res) => {
  *               message: Internal Server Error
  */
 router.put("/:id", verify, async (req, res) => {
-  try {
-    // Verify user's role
-    if (req.user.isAdmin !== "ADMIN") {
-      return res.status(403).json({
-        status: false,
-        message: "You don't have permission to edit attendance. Admins only.",
-      });
-    }
-
-    const { id } = req.params;
-    const { date, status, inTime, outTime } = req.body;
-
-    // Query for the user's attendance document
-    let userAttendance = await Attendance.findOne({ user: id });
-
-    // If no attendance document exists, return 404
-    if (!userAttendance) {
-      return res.status(404).json({
-        status: false,
-        message: "Attendance record not found for the specified user and date",
-      });
-    }
-
-    // Check if the user has an entry for the specified date
-    const existingEntryIndex = userAttendance.attendance.findIndex(
-      (entry) => entry.date === date
-    );
-
-    if (existingEntryIndex !== -1) {
-      // Update existing entry
-      userAttendance.attendance[existingEntryIndex].status = status;
-      userAttendance.attendance[existingEntryIndex].inTime = inTime;
-      userAttendance.attendance[existingEntryIndex].outTime = outTime;
-
-      // Save the updated attendance document
+    try {
+      // Verify user's role
+      if (req.user.isAdmin !== "ADMIN") {
+        return res.status(403).json({
+          status: false,
+          message: "You don't have permission to edit attendance. Admins only.",
+        });
+      }
+  
+      const { id } = req.params;
+      const { date, status, inTime, outTime } = req.body;
+  
+      // Query for the user's attendance document
+      let userAttendance = await Attendance.findOne({ user: id });
+  
+      // If no attendance document exists, create a new one
+      if (!userAttendance) {
+        userAttendance = new Attendance({
+          user: id,
+          attendance: [],
+        });
+      }
+  
+      // Check if the user has an entry for the specified date
+      const existingEntryIndex = userAttendance.attendance.findIndex(
+        (entry) => entry.date === date
+      );
+  
+      if (existingEntryIndex !== -1) {
+        // Update existing entry
+        userAttendance.attendance[existingEntryIndex].status = status;
+        userAttendance.attendance[existingEntryIndex].inTime = inTime;
+        userAttendance.attendance[existingEntryIndex].outTime = outTime;
+      } else {
+        // Add a new entry for the specified date
+        userAttendance.attendance.push({
+          date,
+          status,
+          inTime,
+          outTime,
+        });
+      }
+  
+      // Save the updated or new attendance document
       await userAttendance.save();
-
+  
+      // Respond with the updated or new attendance record
+      const updatedEntry = existingEntryIndex !== -1
+        ? userAttendance.attendance[existingEntryIndex]
+        : userAttendance.attendance[userAttendance.attendance.length - 1];
+  
       res.status(200).json({
         status: true,
         message: "Attendance updated successfully",
-        data: userAttendance.attendance[existingEntryIndex],
+        data: updatedEntry,
       });
-    } else {
-      // Return 404 if the entry for the specified date is not found
-      return res.status(404).json({
+    } catch (error) {
+      console.error(error);
+  
+      // Provide more details about the error in the response
+      res.status(500).json({
         status: false,
-        message: "Attendance record not found for the specified user and date",
+        message: "Internal Server Error",
+        error: error.message,
       });
     }
-  } catch (error) {
-    console.error(error);
-
-    // Provide more details about the error in the response
-    res.status(500).json({
-      status: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-});
+  });
+  
 
 /**
  * @swagger

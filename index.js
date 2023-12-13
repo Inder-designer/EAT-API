@@ -7,6 +7,7 @@ const userRoute = require("./routes/users");
 const adminRoute = require("./routes/admin/admin");
 const attendanceRoute = require("./routes/attendanceRoute");
 const taskRoute = require("./routes/task");
+const leaveRoute = require("./routes/leaveRoute");
 const cors = require("cors");
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
@@ -46,8 +47,8 @@ const swaggerOptions = {
   swaggerDefinition: {
     openapi: "3.1.0",
     info: {
-      title: "Your API Title",
-      description: "Your API Description",
+      title: "EAT-API",
+      description: "API for Employees Attendance and Task Manager",
       version: "1.0.0",
       securityDefinitions: {
         Bearer: {
@@ -79,8 +80,8 @@ app.use("/api/auth", authRoute);
 app.use("/api/users", userRoute);
 app.use("/api/admin", adminRoute);
 app.use("/api/attendance", attendanceRoute);
-app.use("/api/task", taskRoute);
-
+app.use("/api/task", taskRoute); 
+app.use("/api/leave", leaveRoute)
 // Serve HTML file
 app.use(express.static("public"));
 
