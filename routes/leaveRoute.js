@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const verify = require("../verifyToken");
 const User = require("../models/User");
-const Leave = require("../models/Leave");
+const Leave = require("../models/leave/Leave");
+const LeaveCategory = require("../models/leave/LeaveCategory");
 
 /**
  * @swagger
@@ -52,7 +53,7 @@ const Leave = require("../models/Leave");
  *               data:
  *                 - {}  # You can include additional data if needed
  */
-// API endpoint for applying leave
+// API applying leave
 router.post("/apply-leave", verify, async (req, res) => {
   try {
     const { leaves } = req.body;
@@ -158,7 +159,7 @@ router.get("/", verify, async (req, res) => {
         message: "You don't have access to get Leaves. Admins only.",
       });
     }
-    
+
     const userLeave = await Leave.find();
     res.status(200).json({
       status: true,
@@ -174,7 +175,6 @@ router.get("/", verify, async (req, res) => {
     });
   }
 });
-
 
 /**
  * @swagger
@@ -252,5 +252,196 @@ router.patch("/:id", verify, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/leave/add-category:
+ *   post:
+ *     summary: Add-Category
+ *     tags: [Leave]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               category:
+ *                 type: string
+ *                 description: The category of leave
+ *     responses:
+ *       201:
+ *         description: Category Add successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               status: true
+ *               message: Category Add successfully
+ *               data:
+ *                 - {}  # You can include additional data if needed
+ */
+// Add Category
+router.post("/add-category", verify, async (req, res) => {
+  try {
+    if (req.user.isAdmin !== "ADMIN") {
+      return res.status(403).json({
+        status: false,
+        message: "You don't have access to add category. Admins only.",
+      });
+    }
+
+    const { category } = req.body;
+
+    // Query for the leave category
+    let leaveCategory = await LeaveCategory.findOne();
+
+    console.log(leaveCategory, "leaveCategory");
+
+    if (leaveCategory) {
+      // Check if the category already exists in the array
+      const categoryExists = leaveCategory.categories.some(
+        (existingCategory) => existingCategory.category === category
+      );
+
+      if (categoryExists) {
+        return res.status(400).json({ message: `Category already exists` });
+      }
+
+      // If leave category exists, add the new category to the array
+      leaveCategory.categories.push({ category });
+    } else {
+      // If no leave category exists, create a new one
+      leaveCategory = new LeaveCategory({
+        categories: [{ category }],
+      });
+    }
+
+    // Save the updated leave category
+    await leaveCategory.save();
+
+    res.status(201).json({
+      status: true,
+      message: "Category Added Successfully",
+      data: leaveCategory,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/leave/category:
+ *   get:
+ *     summary: Category
+ *     tags: [Leave]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Category retrieved successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               status: true
+ *               message: Category retrieved successfully
+ *               data:
+ *                 - {}  # You can include additional data if needed
+ */
+// Add Category
+router.get("/category", verify, async (req, res) => {
+  try {
+    // Query for the leave category
+    let category = await LeaveCategory.find();
+
+    res.status(201).json({
+      status: true,
+      message: "category retrieved Successfully",
+      data: category,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/leave/category:
+ *   delete:
+ *     summary: Category
+ *     tags: [Leave]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               categoryId:
+ *                 type: string
+ *                 description: The category of leave
+ *     responses:
+ *       201:
+ *         description: Category delete successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               status: true
+ *               message: Category delete successfully
+ *               data:
+ *                 - {}  # You can include additional data if needed
+ */
+// Add Category
+router.delete("/category", verify, async (req, res) => {
+  try {
+    if (req.user.isAdmin !== "ADMIN") {
+      return res.status(403).json({
+        status: false,
+        message: "You don't have access to delete category. Admins only.",
+      });
+    }
+
+    const { categoryId } = req.body;
+
+    // Update the leave category to remove the specified category
+    const updatedCategory = await LeaveCategory.findOneAndUpdate(
+      { "categories._id": categoryId },
+      { $pull: { categories: { _id: categoryId } } },
+      { new: true }
+    );
+
+    if (!updatedCategory) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Category deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;
