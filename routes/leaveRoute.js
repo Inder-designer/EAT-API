@@ -60,6 +60,8 @@ router.post("/apply-leave", verify, async (req, res) => {
 
     // Query for the user's leave document
     let userLeave = await Leave.findOne({ user: req.user.id });
+    const userdata = await User.findById(req.user.id)
+    console.log(userdata);
 
     // If no leave exists, create a new one
     if (!userLeave) {
@@ -72,7 +74,7 @@ router.post("/apply-leave", verify, async (req, res) => {
     // Add new leave entries to the user's leave document
     leaves.forEach((leave) => {
       userLeave.leaves.push({
-        user: req.user.id,
+        userName: userdata.firstName+" "+userdata.lastName,
         ...leave,
       });
     });
@@ -84,6 +86,72 @@ router.post("/apply-leave", verify, async (req, res) => {
       status: true,
       message: "Leave applied successfully",
       data: userLeave.leaves,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/leave:
+ *   delete:
+ *     summary: Delete leave
+ *     tags: [Leave]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               leaveId:
+ *                 type: string
+ *                 description: Delete Leave
+ *     responses:
+ *       201:
+ *         description: Leave applied successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               status: true
+ *               message: Leave applied successfully
+ *               data:
+ *                 - {}  # You can include additional data if needed
+ */
+// Delete Leave
+router.delete("/", verify, async (req, res) => {
+  try {
+    if (req.user.isAdmin !== "USER") {
+      return res.status(403).json({
+        status: false,
+        message: "You don't have access to delete category. USER only.",
+      });
+    }
+    const { leaveId } = req.body;
+
+    const userLeave = await Leave.findOneAndUpdate(
+      { "leaves._id": leaveId },
+      { $pull: { leaves: { _id: leaveId } } },
+      { new: true }
+    );
+
+    if (!userLeave) {
+      return res.status(404).json({ message: "Leave not found" });
+    // Save the updated leave document
+    }
+
+    res.status(201).json({
+      status: true,
+      message: "Leave remove successfully",
     });
   } catch (error) {
     console.error(error);
